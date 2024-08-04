@@ -27,7 +27,7 @@ public class UserController {
     private final UserService userService;
 
     @ResponseStatus(OK)
-    @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
+    @GetMapping(path = "", produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Retrieve all users.", description = "Return a list of the users.")
     public List<AppUser> search() {
         log.debug("Call of retrieve all users");
