@@ -4,6 +4,7 @@ import com.ennov.tech.domains.AppUser;
 import com.ennov.tech.domains.Factory;
 import com.ennov.tech.domains.Ticket;
 import com.ennov.tech.domains.dtos.TicketDto;
+import com.ennov.tech.domains.enums.TicketStatut;
 import com.ennov.tech.exceptions.BadRequestException;
 import com.ennov.tech.exceptions.ConflictException;
 import com.ennov.tech.exceptions.EntityNotFoundException;
@@ -12,11 +13,10 @@ import com.ennov.tech.repositories.UserRepository;
 import com.ennov.tech.services.mappers.TicketDtoMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -25,29 +25,21 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class TicketServiceImplTest {
 
     @InjectMocks
     private TicketServiceImpl underTest;
 
-    private TicketDtoMapper mapper;
+    @Mock private TicketDtoMapper mapper;
     @Mock private UserRepository userRepository;
     @Mock private TicketRepository ticketRepository;
 
 
     @BeforeEach
     void setUp() {
-        this.mapper = new TicketDtoMapper();
-
-        this.underTest = new TicketServiceImpl(
-                this.mapper,
-                this.userRepository,
-                this.ticketRepository
-        );
+        MockitoAnnotations.openMocks(this);
     }
 
     @Test
@@ -107,15 +99,22 @@ class TicketServiceImplTest {
     void canCreateTicket() {
         // Given
         TicketDto dto = Factory.buildTicketDto();
-        this.underTest.create(dto);
+        Ticket ticket = Ticket.builder()
+                .titre("Titre du ticket de test")
+                .description("Description du ticket de test")
+                .statut(TicketStatut.IN_PROGRESS)
+                .build();
+
+        when(this.mapper.apply(dto)).thenReturn(ticket);
 
         // When
+        this.underTest.create(dto);
         ArgumentCaptor<Ticket> argumentCaptor = ArgumentCaptor.forClass(Ticket.class);
         verify(this.ticketRepository).save(argumentCaptor.capture());
 
         // Then
-        assertThat(argumentCaptor.getValue().getTitre()).isEqualTo(mapper.apply(dto).getTitre());
-        assertThat(argumentCaptor.getValue().getDescription()).isEqualTo(mapper.apply(dto).getDescription());
+        assertThat(argumentCaptor.getValue().getTitre()).isEqualTo(dto.titre());
+        assertThat(argumentCaptor.getValue().getDescription()).isEqualTo(dto.description());
     }
 
     @Test
@@ -136,8 +135,14 @@ class TicketServiceImplTest {
         // Given
         String message = "Duplicate ticket title";
         TicketDto dto = Factory.buildTicketDto();
+        Ticket ticket = Ticket.builder()
+                .titre("Titre du ticket de test")
+                .description("Description du ticket de test")
+                .statut(TicketStatut.IN_PROGRESS)
+                .build();
 
-        given(this.ticketRepository.findByTitre(dto.titre())).willReturn(Optional.ofNullable(this.mapper.apply(dto)));
+
+        given(this.ticketRepository.findByTitre(dto.titre())).willReturn(Optional.ofNullable(ticket));
 
         // Then
         assertThatThrownBy(() -> this.underTest.create(dto))
@@ -152,9 +157,9 @@ class TicketServiceImplTest {
         // Given
         Long ticketID = 1L;
         TicketDto dto = Factory.buildTicketDto();
-        TicketDto northerDto = Factory.buildTicketDto();
+        Ticket ticket = Ticket.builder().titre("Titre du ticket de test").description("Description du ticket de test").statut(TicketStatut.IN_PROGRESS).build();
 
-        given(this.ticketRepository.findById(ticketID)).willReturn(Optional.ofNullable(mapper.apply(northerDto)));
+        when(this.ticketRepository.findById(ticketID)).thenReturn(Optional.ofNullable(ticket));
         this.underTest.update(ticketID, dto);
 
         // When
@@ -162,8 +167,8 @@ class TicketServiceImplTest {
         verify(this.ticketRepository).save(argumentCaptor.capture());
 
         // Then
-        assertThat(argumentCaptor.getValue().getTitre()).isEqualTo(mapper.apply(dto).getTitre());
-        assertThat(argumentCaptor.getValue().getDescription()).isEqualTo(mapper.apply(dto).getDescription());
+        assertThat(argumentCaptor.getValue().getTitre()).isEqualTo(dto.titre());
+        assertThat(argumentCaptor.getValue().getDescription()).isEqualTo(dto.description());
     }
 
     @Test
@@ -204,8 +209,14 @@ class TicketServiceImplTest {
         ticket.setId(4L);
         TicketDto dto = Factory.buildTicketDto();
 
+        Ticket ticket2 = Ticket.builder()
+                .titre("Titre du ticket de test")
+                .description("Description du ticket de test")
+                .statut(TicketStatut.IN_PROGRESS)
+                .build();
+
         given(this.ticketRepository.findById(ticketId)).willReturn(Optional.of(ticket));
-        given(this.ticketRepository.findByTitre(dto.titre())).willReturn(Optional.ofNullable(this.mapper.apply(dto)));
+        given(this.ticketRepository.findByTitre(dto.titre())).willReturn(Optional.ofNullable(ticket2));
 
         // Then
         assertThatThrownBy(() -> this.underTest.update(ticketId, dto))

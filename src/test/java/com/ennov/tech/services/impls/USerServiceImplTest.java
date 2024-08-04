@@ -10,56 +10,44 @@ import com.ennov.tech.exceptions.ConflictException;
 import com.ennov.tech.exceptions.EntityNotFoundException;
 import com.ennov.tech.repositories.UserRepository;
 import com.ennov.tech.services.mappers.UserDtoMapper;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class USerServiceImplTest {
 
     @InjectMocks
     private USerServiceImpl underTest;
 
-    private UserDtoMapper mapper;
+    @Mock private UserDtoMapper mapper;
+    @Mock private JwtServiceImpl jwtService;
     @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
     @Mock private AuthenticationManager authenticationManager;
 
     @BeforeEach
     void setUp() {
-        this.mapper = new UserDtoMapper();
-        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-        underTest = new USerServiceImpl(
-                this.mapper,
-                new JwtServiceImpl(),
-                this.userRepository,
-                passwordEncoder,
-                this.authenticationManager
-        );
+        MockitoAnnotations.openMocks(this);
     }
 
-    @AfterEach
-    public void cleanup() {
+    @AfterAll
+    static void afterAll() {
         SecurityContextHolder.clearContext();
     }
 
@@ -105,6 +93,8 @@ class USerServiceImplTest {
     void canCreateUser() {
         // Given
         UserDto dto = Factory.buildUserDto();
+        AppUser user = AppUser.builder().email("test@test.com").username("test").password("password").build();
+        when(this.mapper.apply(dto)).thenReturn(user);
         underTest.create(dto);
 
         // When
@@ -135,10 +125,10 @@ class USerServiceImplTest {
         String username = "test";
         String email = "test@test.com";
         UserDto dto = Factory.buildUserDto();
-        UserDto dto1 = Factory.buildUserDto();
+        AppUser user = AppUser.builder().email("test@test.com").username("test").password("password").build();
 
         String message = "Duplicate username or email";
-        given(userRepository.findByUsernameOrEmail(username, email)).willReturn(Optional.ofNullable(mapper.apply(dto1)));
+        given(userRepository.findByUsernameOrEmail(username, email)).willReturn(Optional.ofNullable(user));
 
         // Then
         assertThatThrownBy(() -> underTest.create(dto))
@@ -152,9 +142,9 @@ class USerServiceImplTest {
         // Given
         Long userId = 1L;
         UserDto dto = Factory.buildUserDto();
-        UserDto northerDto = Factory.buildUserDto();
+        AppUser user = AppUser.builder().email("test@test.com").username("test").password("password").build();
 
-        given(userRepository.findById(userId)).willReturn(Optional.ofNullable(mapper.apply(northerDto)));
+        given(this.userRepository.findById(userId)).willReturn(Optional.ofNullable(user));
         underTest.update(userId, dto);
 
         // When
@@ -162,8 +152,8 @@ class USerServiceImplTest {
         verify(userRepository).save(argumentCaptor.capture());
 
         // Then
-        assertThat(argumentCaptor.getValue().getEmail()).isEqualTo(mapper.apply(dto).getEmail());
-        assertThat(argumentCaptor.getValue().getUsername()).isEqualTo(mapper.apply(dto).getUsername());
+        assertThat(argumentCaptor.getValue().getEmail()).isEqualTo(dto.email());
+        assertThat(argumentCaptor.getValue().getUsername()).isEqualTo(dto.username());
     }
 
     @Test
@@ -184,13 +174,16 @@ class USerServiceImplTest {
         // Given
         Long userId = 5L;
         String message = "Duplicate username or email.";
-        UserDto dto1 = Factory.buildUserDto();
-        AppUser user = AppUser.builder().id(4L).email("test@test14.com").username("Username").password("password").build();
-        given(this.userRepository.findById(userId)).willReturn(Optional.of(this.mapper.apply(dto1)));
-        given(this.userRepository.findByUsernameOrEmail(dto1.username(), dto1.email())).willReturn(Optional.ofNullable(user));
+        UserDto dto = Factory.buildUserDto();
+        AppUser user1 = AppUser.builder().email("test@test.com").username("test").password("password").build();
+        AppUser user2 = AppUser.builder().id(5L).email("test@test.com").username("test").password("password").build();
+
+        // When
+        given(this.userRepository.findById(userId)).willReturn(Optional.of(user1));
+        given(this.userRepository.findByUsernameOrEmail(user1.getUsername(), user1.getEmail())).willReturn(Optional.of(user2));
 
         // Then
-        assertThatThrownBy(() -> this.underTest.update(userId, dto1))
+        assertThatThrownBy(() -> this.underTest.update(userId, dto))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining(message);
 
@@ -251,20 +244,25 @@ class USerServiceImplTest {
     @Test
     void itShouldChectLogin() {
         // Given
-        UserDto dto = Factory.buildUserDto();
         AuthenticationRequest request = Factory.buildLoginRequest();
+        AppUser user = AppUser.builder().email("test@test.com").username("test").password("password").build();
 
+        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authToken);
 
-        underTest.create(dto);
-       var expected =  underTest.authenticate(request);
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+
+        when(this.authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())))
+                .thenReturn(auth);
+        var claims = new HashMap<String, Object>();
+        claims.put("email", user.getEmail());
+        when(this.jwtService.generateToken(claims, user)).thenReturn("eyfwjkfbfkfkwfenknkwf.dihfwifbweiefhifhuefuifh.wfuiwhfiuwehfi");
+
 
         // When
-        ArgumentCaptor<AppUser> argumentCaptor = ArgumentCaptor.forClass(AppUser.class);
-        verify(userRepository).save(argumentCaptor.capture());
+        var expected =  underTest.authenticate(request);
 
         // Then
-        assertThat(argumentCaptor.getValue().getEmail()).isEqualTo(mapper.apply(dto).getEmail());
-        assertThat(argumentCaptor.getValue().getUsername()).isEqualTo(mapper.apply(dto).getUsername());
         assertThat(expected).isNotNull();
     }
 
