@@ -41,20 +41,19 @@ class USerServiceImplTest {
     private USerServiceImpl underTest;
 
     private UserDtoMapper mapper;
-    private PasswordEncoder passwordEncoder;
     @Mock private UserRepository userRepository;
     @Mock private AuthenticationManager authenticationManager;
 
     @BeforeEach
     void setUp() {
         this.mapper = new UserDtoMapper();
-        this.passwordEncoder = new BCryptPasswordEncoder();
+        PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
         underTest = new USerServiceImpl(
                 this.mapper,
                 new JwtServiceImpl(),
                 this.userRepository,
-                this.passwordEncoder,
+                passwordEncoder,
                 this.authenticationManager
         );
     }
@@ -181,6 +180,24 @@ class USerServiceImplTest {
     }
 
     @Test
+    void willThrowWhenUsernameOrEmailOfUserDtoToSaveAlreadinExist() {
+        // Given
+        Long userId = 5L;
+        String message = "Duplicate username or email.";
+        UserDto dto1 = Factory.buildUserDto();
+        AppUser user = AppUser.builder().id(4L).email("test@test14.com").username("Username").password("password").build();
+        given(this.userRepository.findById(userId)).willReturn(Optional.of(this.mapper.apply(dto1)));
+        given(this.userRepository.findByUsernameOrEmail(dto1.username(), dto1.email())).willReturn(Optional.ofNullable(user));
+
+        // Then
+        assertThatThrownBy(() -> this.underTest.update(userId, dto1))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining(message);
+
+        verify(this.userRepository, never()).save(any());
+    }
+
+    @Test
     void willThrowWhenValueUserDtoToUpdateIsNull() {
         // Given
         Long userId = 1L;
@@ -239,9 +256,7 @@ class USerServiceImplTest {
 
 
         underTest.create(dto);
-        //given(authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())))
-                //.willReturn(this.authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())));
-        var expected =  underTest.authenticate(request);
+       var expected =  underTest.authenticate(request);
 
         // When
         ArgumentCaptor<AppUser> argumentCaptor = ArgumentCaptor.forClass(AppUser.class);

@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -60,10 +61,14 @@ public class USerServiceImpl implements UserService {
         if(userIdToUpdate == null || dto == null) {
             throw new BadRequestException("Unable to update object with null value");
         }
-        AppUser userSaved = this.lire(userIdToUpdate);
-        userSaved.setEmail(dto.email());
-        userSaved.setUsername(dto.username());
-        userRepository.save(userSaved);
+        AppUser user = this.lire(userIdToUpdate);
+        user.setEmail(dto.email());
+        user.setUsername(dto.username());
+        Optional<AppUser> userToSave = this.userRepository.findByUsernameOrEmail(user.getUsername(), user.getEmail());
+        if(userToSave.isPresent() && !Objects.equals(user.getId(), userToSave.get().getId())) {
+            throw new ConflictException("Duplicate username or email.");
+        }
+        userRepository.save(user);
     }
 
     @Override
