@@ -28,7 +28,7 @@ public class ApplicationControlAdvice {
     }
 
     @ResponseStatus(NOT_FOUND)
-    @ExceptionHandler({EntityNotFoundException.class, UsernameNotFoundException.class})
+    @ExceptionHandler({EntityNotFoundException.class})
     public @ResponseBody ErrorEntity notFoundRequestHandler(EntityNotFoundException ex) {
         return new ErrorEntity(NOT_FOUND.value(), ex.getMessage());
     }

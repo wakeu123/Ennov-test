@@ -34,9 +34,7 @@ public class JwtFilter extends OncePerRequestFilter {
             @NotNull HttpServletResponse response,
             @NotNull FilterChain filterChain) throws ServletException, IOException {
 
-        log.info("<<<<<===========>>>>", request.getServletPath().toString());
         if(request.getServletPath().contains("/api/v1/users")) {
-            log.info("===========>", request.getServletPath().toString());
             filterChain.doFilter(request, response);
         }
 

@@ -264,17 +264,4 @@ class USerServiceImplTest {
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining(message);
     }
-//
-//    @Test
-//    void willThrowWhenOrtherLogin() {
-//        // Given
-//        AuthenticationRequest request = Factory.buildLoginRequest();
-//
-//        String message = messageSource.getMessage("unable.to.authenticate.username", new Object[]{ }, locale);
-//
-//        // When
-//        assertThatThrownBy(() -> underTest.authenticate(request))
-//                .isInstanceOf(EnnovException.class)
-//                .hasMessageContaining(message);
-//    }
 }
