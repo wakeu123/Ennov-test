@@ -2,7 +2,6 @@ package com.ennov.tech.domains;
 
 import lombok.*;
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Size;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.security.core.GrantedAuthority;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -30,7 +29,6 @@ public class AppUser implements UserDetails, Principal {
     private String email;
 
     @Column(nullable = false, unique = true)
-    @Size(min = 3, message = "not.min.length,required")
     private String username;
 
     @OneToMany(mappedBy = "user")
@@ -38,7 +36,6 @@ public class AppUser implements UserDetails, Principal {
     private List<Ticket> tickets = new ArrayList<>();
 
     @JsonIgnore
-    @Size(min = 3, message = "not.min.length,required")
     private String password;
 
     private boolean enabled;
